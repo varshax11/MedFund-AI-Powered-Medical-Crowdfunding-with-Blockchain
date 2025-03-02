@@ -1,24 +1,26 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-import pandas as pd
-from severity_model import severity_model
-import razorpay
 import os
+import razorpay
 from server.blockchain import blockchain
+from severity_model import SeverityModel  
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key_here'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///medical_fund.db'
 db = SQLAlchemy(app)
 
-# Initialize Razorpay client
+
+severity_model = SeverityModel()
+
+
 razorpay_client = razorpay.Client(
-    auth=(os.environ.get('RAZORPAY_KEY_ID'), 
-          os.environ.get('RAZORPAY_KEY_SECRET'))
+    auth=(os.environ.get('RAZORPAY_KEY_ID'), os.environ.get('RAZORPAY_KEY_SECRET'))
 )
 
-# Database Models
+
 class Campaign(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
@@ -35,10 +37,10 @@ class Donation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     amount = db.Column(db.Float, nullable=False)
     donor_name = db.Column(db.String(80))
-    payment_id = db.Column(db.String(100))  # Razorpay payment ID
+    payment_id = db.Column(db.String(100))  
     campaign_id = db.Column(db.Integer, db.ForeignKey('campaign.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    block_hash = db.Column(db.String(64))  # Hash of the blockchain block
+    block_hash = db.Column(db.String(64))  
 
 @app.route('/')
 def home():
@@ -52,18 +54,15 @@ def create_campaign():
         symptoms = request.form['symptoms']
         diagnosis = request.form['diagnosis']
 
-        # Calculate severity using condition, symptoms, and diagnosis
-        severity_result = severity_model.predict_severity(
-            condition=condition,
-            symptoms=symptoms,
-            diagnosis=diagnosis
-        )
+        
+        input_text = f"Condition: {condition}, Symptoms: {symptoms}, Diagnosis: {diagnosis}"
+        severity_result = severity_model.predict_severity(input_text)
 
         campaign = Campaign(
-            title=condition,  # Use condition as the title
+            title=condition,
             description=f"Condition: {condition}\nSymptoms: {symptoms}\nDiagnosis: {diagnosis}",
             amount_needed=float(request.form['amount_needed']),
-            severity_score=severity_result['severityScore'],
+            severity_score=severity_result['score'],  
             ml_confidence=severity_result['confidence'],
             severity_class=severity_result['classification']
         )
@@ -79,12 +78,12 @@ def create_campaign():
 def donate(campaign_id):
     campaign = Campaign.query.get_or_404(campaign_id)
     return render_template('donate.html', campaign=campaign, 
-                         key_id=os.environ.get('RAZORPAY_KEY_ID'))
+                           key_id=os.environ.get('RAZORPAY_KEY_ID'))
 
 @app.route('/create_order/<int:campaign_id>', methods=['POST'])
 def create_order(campaign_id):
     campaign = Campaign.query.get_or_404(campaign_id)
-    amount = int(float(request.form['amount']) * 100)  # Convert to paise
+    amount = int(float(request.form['amount']) * 100)  
 
     order_data = {
         'amount': amount,
@@ -105,14 +104,14 @@ def payment_callback():
     donor_name = request.form.get('donor_name')
 
     try:
-        # Verify Razorpay payment
+        
         razorpay_client.utility.verify_payment_signature({
             'razorpay_payment_id': payment_id,
             'razorpay_order_id': order_id,
             'razorpay_signature': signature
         })
 
-        # Record transaction in blockchain
+        
         transaction_data = {
             "payment_id": payment_id,
             "campaign_id": campaign_id,
@@ -122,14 +121,14 @@ def payment_callback():
         }
         block = blockchain.create_block(transaction_data)
 
-        # Create donation record
+        
         campaign = Campaign.query.get(campaign_id)
         donation = Donation(
             amount=amount,
             donor_name=donor_name,
             payment_id=payment_id,
             campaign_id=campaign_id,
-            block_hash=block.hash  # Store block hash for reference
+            block_hash=block.hash  
         )
         campaign.amount_raised += amount
 
