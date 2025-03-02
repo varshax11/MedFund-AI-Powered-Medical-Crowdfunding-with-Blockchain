@@ -44,7 +44,9 @@ npm install
 ```
 
 2. **Environment Setup**:
-Create a `.env` file in the project root:
+Create a `.env` file in the project root and add the following values:  
+*(Replace with your actual credentials!)*
+
 ```env
 # Database Configuration
 DATABASE_URL=postgres://username:password@localhost:5432/medical_fund_db
@@ -52,9 +54,9 @@ DATABASE_URL=postgres://username:password@localhost:5432/medical_fund_db
 # Session Secret (Generate a random string)
 SESSION_SECRET=your_random_secret_here
 
-# Razorpay Configuration
-RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_secret_key
+# Razorpay Configuration (Sign up at Razorpay and get API keys)
+RAZORPAY_KEY_ID=your_razorpay_key_id_here
+RAZORPAY_KEY_SECRET=your_razorpay_secret_here
 
 # Blockchain Configuration
 VITE_CONTRACT_ADDRESS=your_deployed_contract_address
